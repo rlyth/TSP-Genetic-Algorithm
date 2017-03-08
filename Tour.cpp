@@ -63,9 +63,11 @@ std::vector<int> Tour::getID() {
 	return id;
 }
 
+
 std::vector<int> Tour::getX() {
 	return xc;
 }
+
 
 std::vector<int> Tour::getY() {
 	return yc;

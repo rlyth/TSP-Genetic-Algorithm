@@ -25,13 +25,13 @@ class Population {
 	private:
 		std::vector<Tour> current_pop;
 		int population_size;
-		float elitism;
-		float mutation;
+		double elitism;
+		double mutation;
 		int min_dist;
 		std::vector<int> min_path;
 
 	public:
-		Population(int pop_size, float elitism_rate, float mutation_rate);
+		Population(int pop_size, double elitism_rate, double mutation_rate);
 		~Population();
 		void initialize(Tour seed);
 		void next_generation();

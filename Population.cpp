@@ -6,7 +6,7 @@
 #include <cstdlib>
 #include <iostream>
 
-Population::Population(int pop_size, float elitism, float mutation) {
+Population::Population(int pop_size, double elitism, double mutation) {
 	this->population_size = pop_size;
 	this->elitism = elitism;
 	this->mutation = mutation;
