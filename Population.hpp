@@ -23,29 +23,31 @@ struct Evaluation {
 
 class Population {
 	private:
-		std::vector<Tour> current_pop;
-		int population_size;
+		std::vector<Tour> currentPop;
+		int populationSize;
 		double elitism;
 		double mutation;
-		int min_dist;
-		std::vector<int> min_path;
+		int minDist;
+		std::vector<int> minPath;
 
 	public:
 		Population(int pop_size, double elitism_rate, double mutation_rate);
 		~Population();
 		void initialize(Tour seed);
-		void next_generation();
-		void update_mins();
+		void nextGeneration();
+		void updateMins();
 		int getMinDist();
 		std::vector<int> getMinPath();
 		void print();
 		
 	private:
 		void evaluate(std::priority_queue<Evaluation> &eval);
-		void select(std::priority_queue<Evaluation> &eval, std::vector<Tour> &pop);
-		void crossover(std::vector<Tour> &next_gen);
+		std::vector<int> select(std::priority_queue<Evaluation> &eval, std::vector<Tour> &pop);
+		void crossover(std::vector<Tour> &next_gen, std::vector<int> evals);
 		void mutate(std::vector<Tour> &pop);
 		std::vector<int> generateChild(std::vector<int> p1, std::vector<int> p2, int cross);
+		int truncationSelect(int num_parents);
+		int rouletteSelect(std::vector<Tour> next_gen, std::vector<int> fitEvals, int fitTotal);
 };
 
 

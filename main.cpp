@@ -4,8 +4,8 @@
   ** Date: 03/07/17
   ** Description: Main function to control a genetic algorithm for the
 		traveling salesman problem
-  ** Input: A properly-formatted text file with IDs and x-y coordinates
-		for a graph, separated by spaces, one ID and coord set per line
+  ** Input: A properly-formatted text file with IDs and x-y graph
+		coordinates, separated by spaces, one ID and coord set per line
   ** Output: The most optimal solution found by the algorithm, written
 		to [input-filename].tour
   *********************************************************************/
@@ -27,8 +27,8 @@ void validateInput(double min, double &target, double max);
 int main(int argc, const char * argv[]) {
 	// Genetic Parameters
 	int population_size = 100;
-	double elitism_rate = .20;
-	double mutation_rate = .05;
+	double elitism_rate = .2;
+	double mutation_rate = .01;
 	int generations = 2000;
 	
 	if(argc < 2) {
@@ -80,19 +80,27 @@ int main(int argc, const char * argv[]) {
 	}
 	
 	// Algorithm start
+	clock_t begin = clock();
+	
 	Population pop(population_size, elitism_rate, mutation_rate);
 	
 	pop.initialize(initial_tour);
 	
 	// Complete generations many lifecycles
 	for(int i = 0; i < generations; i++) {
-		pop.next_generation();
+		pop.nextGeneration();
 	}
 	
 	// Retrieve the most optimal solution from the final population
-	pop.update_mins();
+	pop.updateMins();
 	std::vector<int> minPath = pop.getMinPath();
 	int minDist = pop.getMinDist();
+	
+	std::cout << "Genetic Algorithm tour length: " << minDist << "\n";
+	clock_t end = clock();
+	std::cout << "\nSolution found in " <<
+		(end - begin) / static_cast<double>(CLOCKS_PER_SEC)
+		<< " seconds." << "\n";
 	
 	// Filename for output file
 	std::string filename(argv[1]);

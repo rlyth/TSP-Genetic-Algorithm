@@ -5,26 +5,27 @@
 #include <math.h>
 #include <cstdlib>
 #include <iostream>
+#include <numeric>
 
 Population::Population(int pop_size, double elitism, double mutation) {
-	this->population_size = pop_size;
+	this->populationSize = pop_size;
 	this->elitism = elitism;
 	this->mutation = mutation;
 }
 
 void Population::initialize(Tour seed) {
 	// Set current mins to seed values in case getMins is called before updateMins
-	min_path = seed.getID();
-	min_dist = seed.calcTourDist();
+	minPath = seed.getID();
+	minDist = seed.calcTourDist();
 	
-	for(int i = 0; i < population_size; i++) {
+	for(int i = 0; i < populationSize; i++) {
 		// Randomize order of location ids
 		// We will still be able to access an ids corresponding x and y coords
 		// Because its numerical value is also the index of its coordinates
 		seed.shufflePath();
 		
 		// Add randomized tour to population
-		current_pop.push_back(seed);
+		currentPop.push_back(seed);
 	}
 }
 
@@ -32,7 +33,7 @@ void Population::initialize(Tour seed) {
 Population::~Population() {};
 
 
-void Population::next_generation() {
+void Population::nextGeneration() {
 	std::vector<Tour> next_gen;
 	
 	// Obtain tour distance for all tours
@@ -40,22 +41,24 @@ void Population::next_generation() {
 	evaluate(fitness_evals);
 	
 	// Select most optimal tours and add to next_gen
-	select(fitness_evals, next_gen);
+	// newEvals will contain the fitness values of the selected population
+	std::vector<int> newEvals;
+	newEvals = select(fitness_evals, next_gen);
 	
 	// Generate new tours from selected tours
-	crossover(next_gen);
+	crossover(next_gen, newEvals);
 	
 	// Introduce random mutations
 	mutate(next_gen);
 	
-	current_pop = next_gen;
+	currentPop = next_gen;
 }
 
 
 void Population::evaluate(std::priority_queue<Evaluation> &eval) {
-	for(int i = 0; i < population_size; i++) {
+	for(int i = 0; i < populationSize; i++) {
 		// Store tour index and calculated tour distance in struct
-		Evaluation current_eval(i, current_pop.at(i).calcTourDist());
+		Evaluation current_eval(i, currentPop.at(i).calcTourDist());
 		
 		// Push the evaluation struct into the priority queue
 		eval.push(current_eval);
@@ -63,24 +66,31 @@ void Population::evaluate(std::priority_queue<Evaluation> &eval) {
 }
 
 
-void Population::select(std::priority_queue<Evaluation> &eval, std::vector<Tour> &next_gen) {
-	int num_elitism = ceil(population_size * elitism);
+std::vector<int> Population::select(std::priority_queue<Evaluation> &eval, std::vector<Tour> &next_gen) {
+	int num_elitism = ceil(populationSize * elitism);
+	std::vector<int> newEvals;
 	
 	// Selects the first num_elitism tours with the lowest total distances
 	for(int i = 0; i < num_elitism; i++) {
 		// Retrieve the tour located at the index stored in Eval struct
-		Tour temp = current_pop.at(eval.top().tour_idx);
+		Tour temp = currentPop.at(eval.top().tour_idx);
 		
 		next_gen.push_back(temp);
+		newEvals.push_back(eval.top().fit_val);
 		
 		eval.pop();
 	}
+	
+	return newEvals;
 }
 
 
-void Population::crossover(std::vector<Tour> &next_gen) {
-	int num_parents = ceil(population_size * elitism);
-	int num_children = population_size - num_parents;
+void Population::crossover(std::vector<Tour> &next_gen, std::vector<int> fit_evals) {
+	int num_parents = ceil(populationSize * elitism);
+	int num_children = populationSize - num_parents;
+	
+	// Used in roulette wheel selection
+	//int totalFitness = std::accumulate(fit_evals.begin(), fit_evals.end(), 0);
 	
 	// Store tour size for easier reference
 	int tour_size = next_gen.at(0).size();
@@ -92,12 +102,15 @@ void Population::crossover(std::vector<Tour> &next_gen) {
 		int cross = rand() % (tour_size - 2) + 1;
 		
 		// Get the index of two parents
-		int parent1 = rand() % num_parents;
-		int parent2 = rand() % num_parents;
+		int parent1 = truncationSelect(num_parents);
+		int parent2 = truncationSelect(num_parents);
+		//int parent1 = rouletteSelect(next_gen, fit_evals, totalFitness);
+		//int parent2 = rouletteSelect(next_gen, fit_evals, totalFitness);
 		
 		// Ensure parents are unique
 		while(parent1 == parent2 && num_parents > 1) {
-			parent2 = rand() % num_parents;
+			parent2 = truncationSelect(num_parents);
+			//parent2 = rouletteSelect(next_gen, fit_evals, totalFitness);
 		}
 		
 		// First child
@@ -109,13 +122,54 @@ void Population::crossover(std::vector<Tour> &next_gen) {
 		next_gen.push_back(childTour);
 		
 		// Prevent extra children from being generated when num_children is odd
-		if(next_gen.size() < population_size) {
+		if(next_gen.size() < populationSize) {
+			// Second child
 			newPath = generateChild(next_gen.at(parent2).getID(),
 				next_gen.at(parent1).getID(), cross);
 			
 			childTour.setID(newPath);
 			
 			next_gen.push_back(childTour);
+		}
+	}
+}
+
+
+// Faster but less reliable
+int Population::truncationSelect(int num_parents) {
+	// Get a value in range 1 .. 100
+	int wheelSpin = rand() % 100 + 1;
+	
+	// 50% chance to select parent from top third
+	int p1 = ceil(num_parents/3);
+	if(wheelSpin <= 50) {
+		return rand() % p1;
+	}
+	
+	// 33% chance to select parent from top 2/3
+	int p2 = ceil(2 * num_parents / 3);
+	if(wheelSpin <= 83) {
+		return rand() % p2;
+	}
+	
+	// 17% chance to select parent from entire population
+	return rand() % num_parents;
+}
+
+
+// Slower but better, more consistent results
+int Population::rouletteSelect(std::vector<Tour> next_gen, std::vector<int> fitEvals, int fitTotal) {
+	int findParent = 0;
+	
+	// Generate random value in range 0 .. fitTotal
+	int wheelSpin = rand() % fitTotal;
+	
+	// Iterate through population, summing fitnesses until wheelSpin is reached
+	for(int i = 0; i < next_gen.size(); i++) {
+		findParent += fitEvals[i];
+		
+		if(findParent >= wheelSpin) {
+			return i;
 		}
 	}
 }
@@ -166,9 +220,11 @@ std::vector<int> Population::generateChild(std::vector<int> path1, std::vector<i
 }
 
 
-void Population::mutate(std::vector<Tour> &pop) {	
+void Population::mutate(std::vector<Tour> &pop) {
+	int tour_size = pop[0].size();
+	
 	// Guarantees at least one mutation per generation
-	int num_mutations = ceil(population_size * mutation);
+	int num_mutations = ceil(populationSize * mutation * tour_size);
 	
 	for(int i = 0; i < num_mutations; i++) {
 		// Get index of random solution
@@ -176,12 +232,12 @@ void Population::mutate(std::vector<Tour> &pop) {
 		int to_mutate = rand() % (pop.size() - 1) + 1;
 		
 		// Get two indices from range 0 .. tour.size()
-		int swap_from = rand() % pop[to_mutate].size();
-		int swap_to = rand() % pop[to_mutate].size();
+		int swap_from = rand() % tour_size;
+		int swap_to = rand() % tour_size;
 		
 		// Discard duplicate indices
-		while(swap_from == swap_to && pop[to_mutate].size() > 1) {
-			swap_to = rand() % pop[to_mutate].size();
+		while(swap_from == swap_to && tour_size > 1) {
+			swap_to = rand() % tour_size;
 		}
 		
 		pop[to_mutate].swap(swap_from, swap_to);
@@ -189,28 +245,28 @@ void Population::mutate(std::vector<Tour> &pop) {
 }
 
 
-void Population::update_mins() {
+void Population::updateMins() {
 	std::priority_queue<Evaluation> eval;
 	
 	evaluate(eval);
 	
-	min_dist = eval.top().fit_val;
-	min_path = current_pop.at(eval.top().tour_idx).getID();
+	minDist = eval.top().fit_val;
+	minPath = currentPop.at(eval.top().tour_idx).getID();
 }
 
 
 int Population::getMinDist() {
-	return min_dist;
+	return minDist;
 }
 
 
 std::vector<int> Population::getMinPath() {
-	return min_path;
+	return minPath;
 }
 
 
 void Population::print() {
-	for(int i = 0; i < current_pop.size(); i++) {
-		std::cout << "Tour " << i << ": " << current_pop.at(i).calcTourDist() << "\n";
+	for(int i = 0; i < currentPop.size(); i++) {
+		std::cout << "Tour " << i << ": " << currentPop.at(i).calcTourDist() << "\n";
 	}
 }
