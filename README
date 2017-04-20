@@ -1,0 +1,7 @@
+
+-- Parameter Suggestions --
+A good population size is approximately the same as the number of nodes in the graph
+A good elitism rate is between .2 - .3
+A good mutation rate is between .01 - .03
+More generations generally improves results, but increases runtime
+
